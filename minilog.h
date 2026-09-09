@@ -6,19 +6,21 @@
 #include <time.h>
 #include <assert.h>
 
+#include <windows.h>
+
 // TODO this should not be provied by this module
 #if defined(_MSC_VER) && defined(_DEBUG)
 #define DEBUG_BUILD 1
 #define BREAKPOINT __debugbreak()
 #elif (defined(__GNUC__) || defined(__clang__)) && !defined(NDEBUG)
 #define DEBUG_BUILD 1
-#define BREAKPOINT __builtin_break()
+#define BREAKPOINT __builtin_trap()
 #else
 //? exit instead of breaking in production
 #define BREAKPOINT
 #endif /* defined(_MSC_VER) && defined(_DEBUG) */
 
-// TODO _WIN32 colors
+// TODO Improve the color system
 #ifdef _WIN32
 #define LOG_OUTPUT_COLOR_RED ""
 #define LOG_OUTPUT_COLOR_GREEN ""
@@ -140,15 +142,27 @@ void minilog_init(FILE *fp)
     assert(log_fp);
     // resetting the color
     log_color = LOG_OUTPUT_COLOR_RESET;
+#ifdef _WIN32
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),
+                            FOREGROUND_RED | FOREGROUND_GREEN
+                                | FOREGROUND_BLUE);
+#endif // _WIN32
     return;
 }
 
 void minilog_shutdown(void)
 {
     // making sure we don't leave any colors behind
+#ifdef _WIN32
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),
+                            FOREGROUND_RED | FOREGROUND_GREEN
+                                | FOREGROUND_BLUE);
+#endif // _WIN32
     log_color = LOG_OUTPUT_COLOR_RESET;
-    fclose(log_fp);
-    log_fp = NULL;
+    if (NULL != log_fp) {
+        fclose(log_fp);
+        log_fp = NULL;
+    }
     return;
 }
 
@@ -192,62 +206,115 @@ int minilog_log_v(FILE *fp, LogPriority priority, const char *fmt, va_list ap,
 
 int minilog_log_trace(const char *file, int line, const char *fmt, ...)
 {
+#ifdef _WIN32
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),
+                            FOREGROUND_RED | FOREGROUND_GREEN
+                                | FOREGROUND_BLUE);
+#endif // _WIN32
     int len = 0;
     va_list ap;
     va_start(ap, fmt);
     len += minilog_log_v(log_fp, LOG_PRIORITY_TRACE, fmt, ap, file, line);
     va_end(ap);
     return len;
+#ifdef _WIN32
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),
+                            FOREGROUND_RED | FOREGROUND_GREEN
+                                | FOREGROUND_BLUE);
+#endif // _WIN32
 }
 
 int minilog_log_debug(const char *file, int line, const char *fmt, ...)
 {
+#ifdef _WIN32
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_BLUE);
+#endif // _WIN32
     int len = 0;
     va_list ap;
     va_start(ap, fmt);
     len += minilog_log_v(log_fp, LOG_PRIORITY_DEBUG, fmt, ap, file, line);
     va_end(ap);
     return len;
+#ifdef _WIN32
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),
+                            FOREGROUND_RED | FOREGROUND_GREEN
+                                | FOREGROUND_BLUE);
+#endif // _WIN32
 }
 
 int minilog_log_info(const char *file, int line, const char *fmt, ...)
 {
+#ifdef _WIN32
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_GREEN);
+#endif // _WIN32
     int len = 0;
     va_list ap;
     va_start(ap, fmt);
     len += minilog_log_v(log_fp, LOG_PRIORITY_INFO, fmt, ap, file, line);
     va_end(ap);
     return len;
+#ifdef _WIN32
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),
+                            FOREGROUND_RED | FOREGROUND_GREEN
+                                | FOREGROUND_BLUE);
+#endif // _WIN32
 }
 
 int minilog_log_warn(const char *file, int line, const char *fmt, ...)
 {
+#ifdef _WIN32
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),
+                            FOREGROUND_RED | FOREGROUND_GREEN);
+#endif // _WIN32
     int len = 0;
     va_list ap;
     va_start(ap, fmt);
     len += minilog_log_v(log_fp, LOG_PRIORITY_WARN, fmt, ap, file, line);
     va_end(ap);
     return len;
+#ifdef _WIN32
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),
+                            FOREGROUND_RED | FOREGROUND_GREEN
+                                | FOREGROUND_BLUE);
+#endif // _WIN32
 }
 
 int minilog_log_error(const char *file, int line, const char *fmt, ...)
 {
+#ifdef _WIN32
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_RED);
+#endif // _WIN32
     int len = 0;
     va_list ap;
     va_start(ap, fmt);
     len += minilog_log_v(log_fp, LOG_PRIORITY_ERROR, fmt, ap, file, line);
     va_end(ap);
     return len;
+#ifdef _WIN32
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),
+                            FOREGROUND_RED | FOREGROUND_GREEN
+                                | FOREGROUND_BLUE);
+#endif // _WIN32
 }
 
 int minilog_log_fatal(const char *file, int line, const char *fmt, ...)
 {
+#ifdef _WIN32
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),
+                            FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE
+                                | BACKGROUND_RED | FOREGROUND_INTENSITY
+                                | BACKGROUND_INTENSITY);
+#endif // _WIN32
     int len = 0;
     va_list ap;
     va_start(ap, fmt);
     len += minilog_log_v(log_fp, LOG_PRIORITY_FATAL, fmt, ap, file, line);
     va_end(ap);
-    exit(len);
+#ifdef _WIN32
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),
+                            FOREGROUND_RED | FOREGROUND_GREEN
+                                | FOREGROUND_BLUE);
+#endif // _WIN32
 #ifdef DEBUG_BUILD
     BREAKPOINT;
 #else

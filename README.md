@@ -6,9 +6,9 @@
 
 Simple and easy to use stb-style logger. This is just a practice project but will definitely end up merged to [quest](https://github.com/itsjustgalileo/quest).
 
-```
-***THIS IS NOT THREAD-SAFE.***
-```
+
+> **_WARNING_: THIS IS NOT THREAD-SAFE.**
+
 
 ---
 
@@ -20,7 +20,7 @@ Simple and easy to use stb-style logger. This is just a practice project but wil
 
 ## SUPPORTED PLATFORMS
 
-- [ ] Windows
+- [X] Windows
 - [X] Linux
 - [X] macOS
 - [ ] Web
@@ -120,8 +120,9 @@ int main(void)
 
 ## TODO
 
-- [ ] Add Win32 colors
+- [X] Add Win32 colors
 - [ ] Add multithreading support
+- [ ] Improve the color system
 
 ---
 
