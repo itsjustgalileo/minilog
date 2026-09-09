@@ -5,9 +5,9 @@ static void connect_to_server(const char *host, int port)
 {
     MINILOG_TRACE("Entering connect_to_server()");
 
-    MINILOG_DEBUG("Connecting to server");
-
     MINILOG_INFO("Connecting to %s:%d", host, port);
+
+    MINILOG_DEBUG("Connecting to server...");
 
     if (port != 443) {
         MINILOG_WARN("Using non-standard port: %d", port);
@@ -43,6 +43,11 @@ static void process_request(int request_id, const char *username)
 
 int main(void)
 {
+
+    minilog_init(NULL);
+
+    MINILOG_TODO("Something to do");
+
     MINILOG_TRACE("Program starting");
 
     MINILOG_DEBUG("Debug mode is enabled");
@@ -62,6 +67,8 @@ int main(void)
     MINILOG_FATAL("fatal error");
 
     MINILOG_INFO("MiniLog server disconnected");
+
+    minilog_shutdown();
 
     return 0;
 }

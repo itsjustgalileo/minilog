@@ -120,9 +120,12 @@ int main(void)
 
 ## TODO
 
+<!--In no particular order of priority-->
 - [X] Add Win32 colors
 - [ ] Add multithreading support
 - [ ] Improve the color system
+- [ ] Implement custom file handling
+- [ ] Write a `set_color()` function
 
 ---
 
@@ -131,3 +134,4 @@ int main(void)
 - [stb](https://github.com/nothings/stb)
 - [tsoding's nob](https://github.com/tsoding/nob.h)
 - [Variadic macros](https://en.wikipedia.org/wiki/Variadic_macro)
+- [ANSI escape sequences](https://jakob-bagterp.github.io/colorist-for-python/ansi-escape-codes/standard-16-colors/#structure)
