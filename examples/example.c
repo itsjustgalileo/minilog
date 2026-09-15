@@ -44,7 +44,7 @@ static void process_request(int request_id, const char *username)
 int main(void)
 {
 
-    minilog_init(NULL);
+    minilog_init("log", NULL);
 
     MINILOG_TODO("Something to do");
 

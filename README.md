@@ -6,9 +6,7 @@
 
 Simple and easy to use stb-style logger. This is just a practice project but will definitely end up merged to [quest](https://github.com/itsjustgalileo/quest).
 
-
 > **_WARNING_: THIS IS NOT THREAD-SAFE.**
-
 
 ---
 
@@ -120,12 +118,17 @@ int main(void)
 
 ## TODO
 
+- [ ] Add support for both log and logf
+- [X] Add `set_log_function`
+- [X] Make file logging only if a file is provided
+- [ ] Add `set_log_format`.
+
 <!--In no particular order of priority-->
 - [X] Add Win32 colors
 - [ ] Add multithreading support
-- [ ] Improve the color system
-- [ ] Implement custom file handling
-- [ ] Write a `set_color()` function
+- [X] Write a `set_log_color()` function
+- [ ] Add support for multiple files
+- [ ] Remove C preprocessor macros from minilog
 
 ---
 
