@@ -121,7 +121,8 @@ int main(void)
 - [ ] Add support for both log and logf
 - [X] Add `set_log_function`
 - [X] Make file logging only if a file is provided
-- [ ] Add `set_log_format`.
+- [ ] Set `set_log_format` variadics.
+- [ ] Fix log file name in windows (remove `e` at the beginning)
 
 <!--In no particular order of priority-->
 - [X] Add Win32 colors
@@ -138,3 +139,4 @@ int main(void)
 - [tsoding's nob](https://github.com/tsoding/nob.h)
 - [Variadic macros](https://en.wikipedia.org/wiki/Variadic_macro)
 - [ANSI escape sequences](https://jakob-bagterp.github.io/colorist-for-python/ansi-escape-codes/standard-16-colors/#structure)
+- [\_\_STDC_VERSION\_\_ values](https://sourceforge.net/p/predef/wiki/Standards/)

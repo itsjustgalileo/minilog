@@ -1,8 +1,14 @@
 # DEVLOG
 
+## [16-Sep-2026] - Tweaks - 0.2.0
+
++ Support for `set_log_output`.
++ Support for `LogOutput` enum for multi outputs.
+* Fixed `NORETURN` for C11.
+
 ---
 
-## [15-Sep-2026] - Cleanup and refactoring - 0.0.2
+## [15-Sep-2026] - Cleanup and refactoring - 0.1.2
 
 + Support for `MinGw32`'s `printf` format attribute.
 + `printf` format attribute macro.
@@ -12,7 +18,7 @@
 
 ---
 
-## [09-Sep-2026] - TODO and Win32 - 0.0.1
+## [09-Sep-2026] - TODO and Win32 - 0.1.1
 
 + Support for `MINILOG_TODO` macro.
 * Fixed `return` before resetting colors on Windows.
@@ -21,6 +27,6 @@
 
 ---
 
-## [08-Sep-2026] - Initial commit - 0.0.0
+## [08-Sep-2026] - Initial commit - 0.1.0
 
 + Initial version with UNIX-like and Windows support.

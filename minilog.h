@@ -27,7 +27,7 @@
     || (defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 202311L))
 #define NORETURN [[noreturn]]
 #elif defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L)
-#define NORETURN _No_return
+#define NORETURN _Noreturn
 #elif defined(_MSC_VER)
 #define NORETURN __declspec(noreturn)
 #elif defined(__GNUC__) || defined(__clang__)
@@ -45,6 +45,8 @@
 #define PRINTF_FORMAT
 #endif /* defined(__GNUC__) || defined(__clang__) */
 
+// Monolog macros
+
 #ifdef _WIN32
 #define LOG_COLOR_RED ""
 #define LOG_COLOR_GREEN ""
@@ -53,10 +55,11 @@
 #define LOG_COLOR_WHITE ""
 #define LOG_COLOR_BLACK ""
 #define LOG_COLOR_RED_BG ""
+#define LOG_COLOR_BLUE_BG ""
 #define LOG_COLOR_YELLOW_BG ""
 #define LOG_COLOR_RESET ""
 #else
-// These will work with the new windows terminal
+// These will also work with the new windows terminal
 #define LOG_COLOR_RED "\x1b[31m"
 #define LOG_COLOR_GREEN "\x1b[32m"
 #define LOG_COLOR_YELLOW "\x1b[33m"
@@ -100,9 +103,8 @@ typedef enum LogOutput {
 
     LOG_OUTPUT_SENTINELLE = 0x7fff,
 } LogOutput;
-
 typedef int (*log_fn_ptr)(const char *file, int line, LogPriority priority,
-                          const char *fmt, va_list ap);
+                          LogOutput output, const char *fmt, va_list ap);
 
 void minilog_init(const char *path, log_fn_ptr fn);
 void minilog_shutdown(void);
@@ -110,10 +112,11 @@ void minilog_shutdown(void);
 void minilog_set_log_color(int target, int color);
 void minilog_set_log_file(const char *path);
 void minilog_set_log_function(log_fn_ptr log_fn);
+void minilog_set_log_output(const LogOutput *output);
 
 // Default log function
 int minilog_log_v(const char *file, int line, LogPriority priority,
-                  const char *fmt, va_list ap);
+                  LogOutput output, const char *fmt, va_list ap);
 
 // Printing functions
 PRINTF_FORMAT(3, 4)
@@ -131,9 +134,8 @@ int minilog_log_warn(const char *file, int line, const char *fmt, ...);
 PRINTF_FORMAT(3, 4)
 int minilog_log_error(const char *file, int line, const char *fmt, ...);
 
-PRINTF_FORMAT(3, 4)
-int minilog_log_fatal(const char *file, int line, const char *fmt,
-                      ...) NORETURN;
+NORETURN PRINTF_FORMAT(3, 4) int minilog_log_fatal(const char *file, int line,
+                                                   const char *fmt, ...);
 
 PRINTF_FORMAT(3, 4)
 int minilog_log_todo(const char *file, int line, const char *fmt, ...);
@@ -142,6 +144,9 @@ int minilog_log_todo(const char *file, int line, const char *fmt, ...);
 #ifdef MINILOG_IMPLEMENTATION
 
 static FILE *log_fp;
+static FILE *log_fd;
+
+LogOutput log_output;
 
 static log_fn_ptr log_fn;
 
@@ -221,7 +226,7 @@ static void set_console_text_color(LogPriority priority)
     case LOG_PRIORITY_INFO: {
 #ifdef _WIN32
         SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),
-                                BACKGROUD_RED | BACKGROUND_GREEN);
+                                FOREGROUND_GREEN);
 #else
         log_color = LOG_COLOR_GREEN;
 #endif // _WIN32
@@ -258,7 +263,7 @@ static void set_console_text_color(LogPriority priority)
     case LOG_PRIORITY_TODO: {
 #ifdef _WIN32
         SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),
-                                FOREGROUD_INTENSITY | BACKGROUD_RED
+                                FOREGROUND_INTENSITY | BACKGROUND_BLUE
                                     | BACKGROUND_GREEN);
 #else
         log_color = LOG_COLOR_BLUE_BG;
@@ -286,7 +291,12 @@ static char *get_time_point(void)
 {
     time_t t = time(NULL);
     struct tm *tp = localtime(&t);
+#ifdef _WIN32
+    strftime(time_buf, 256, "%Y-%m-%d-%H-%M-%S", tp);
+#else
     strftime(time_buf, 256, "%Y-%m-%d-%H:%M:%S", tp);
+#endif // _WIN32
+
     return time_buf;
 }
 
@@ -294,7 +304,7 @@ static void minilog_set_log_format(char *format)
 {
     // TODO handle variadics
     format = "%f:%l - [%T][%L]: ";
-    for (for char *p = format; *p++;) {
+    for (char *p = format; *p++;) {
         switch (*p) {
         case 'L':
             break;
@@ -357,21 +367,42 @@ void minilog_set_log_file(const char *path)
     char real_path[256];
     strcat(real_path, path);
     strcat(real_path, time_buf);
-
+    printf("%s\n", real_path);
     log_fp = fopen(real_path, "a+");
     assert(log_fp);
     return;
 }
 
-static FILE *log_fd;
+void minilog_set_log_output(const LogOutput *output)
+{
+    log_output = *output;
+    return;
+}
 
 int minilog_log_v(const char *file, int line, LogPriority priority,
-                  const char *fmt, va_list ap)
+                  LogOutput output, const char *fmt, va_list ap)
 {
-
     int len = 0;
 
-    log_fd = stdout;
+    minilog_set_log_output(&output);
+
+    switch (log_output) {
+    case LOG_OUTPUT_DEFAULT:
+        log_fd = stdout;
+        break;
+    case LOG_OUTPUT_STDOUT:
+        log_fd = stdout;
+        break;
+    case LOG_OUTPUT_STDERR:
+        log_fd = stderr;
+        break;
+    case LOG_OUTPUT_FILE:
+        log_fd = stdout;
+        break;
+    default:
+        break;
+    }
+
     if (log_fd
         && (priority == LOG_PRIORITY_ERROR || priority == LOG_PRIORITY_FATAL)) {
         log_fd = stderr;
@@ -381,7 +412,8 @@ int minilog_log_v(const char *file, int line, LogPriority priority,
     char *priority_buf = string_from_priority(priority);
     char *time_buf = get_time_point();
 
-    if (log_fd) {
+    if (log_fd == stdout || log_fd == stderr) {
+        set_console_text_color(priority);
         va_list args;
         va_copy(args, ap);
 
@@ -391,9 +423,10 @@ int minilog_log_v(const char *file, int line, LogPriority priority,
         len += fprintf(log_fd, "\n");
 
         va_end(args);
+        set_console_text_color(LOG_PRIORITY_TRACE);
     }
 
-    if (log_fp) {
+    if (log_fd) {
         va_list args;
         va_copy(args, ap);
 
@@ -413,7 +446,7 @@ int minilog_log_trace(const char *file, int line, const char *fmt, ...)
     int len = 0;
     va_list ap;
     va_start(ap, fmt);
-    len += log_fn(file, line, LOG_PRIORITY_TRACE, fmt, ap);
+    len += log_fn(file, line, LOG_PRIORITY_TRACE, log_output, fmt, ap);
     va_end(ap);
     return len;
 }
@@ -423,7 +456,7 @@ int minilog_log_debug(const char *file, int line, const char *fmt, ...)
     int len = 0;
     va_list ap;
     va_start(ap, fmt);
-    len += log_fn(file, line, LOG_PRIORITY_DEBUG, fmt, ap);
+    len += log_fn(file, line, LOG_PRIORITY_DEBUG, log_output, fmt, ap);
     va_end(ap);
     return len;
 }
@@ -433,7 +466,7 @@ int minilog_log_info(const char *file, int line, const char *fmt, ...)
     int len = 0;
     va_list ap;
     va_start(ap, fmt);
-    len += log_fn(file, line, LOG_PRIORITY_INFO, fmt, ap);
+    len += log_fn(file, line, LOG_PRIORITY_INFO, log_output, fmt, ap);
     va_end(ap);
     return len;
 }
@@ -443,7 +476,7 @@ int minilog_log_warn(const char *file, int line, const char *fmt, ...)
     int len = 0;
     va_list ap;
     va_start(ap, fmt);
-    len += log_fn(file, line, LOG_PRIORITY_WARN, fmt, ap);
+    len += log_fn(file, line, LOG_PRIORITY_WARN, log_output, fmt, ap);
     va_end(ap);
     return len;
 }
@@ -453,7 +486,7 @@ int minilog_log_error(const char *file, int line, const char *fmt, ...)
     int len = 0;
     va_list ap;
     va_start(ap, fmt);
-    len += log_fn(file, line, LOG_PRIORITY_ERROR, fmt, ap);
+    len += log_fn(file, line, LOG_PRIORITY_ERROR, log_output, fmt, ap);
     va_end(ap);
     return len;
 }
@@ -463,7 +496,7 @@ int minilog_log_fatal(const char *file, int line, const char *fmt, ...)
     int len = 0;
     va_list ap;
     va_start(ap, fmt);
-    len += log_fn(file, line, LOG_PRIORITY_FATAL, fmt, ap);
+    len += log_fn(file, line, LOG_PRIORITY_FATAL, log_output, fmt, ap);
     va_end(ap);
     if (log_fp)
         fclose(log_fp);
@@ -480,7 +513,7 @@ int minilog_log_todo(const char *file, int line, const char *fmt, ...)
     int len = 0;
     va_list ap;
     va_start(ap, fmt);
-    len += log_fn(file, line, LOG_PRIORITY_TODO, fmt, ap);
+    len += log_fn(file, line, LOG_PRIORITY_TODO, log_output, fmt, ap);
     va_end(ap);
     return len;
 }
