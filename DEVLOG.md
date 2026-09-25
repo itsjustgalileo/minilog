@@ -1,5 +1,13 @@
 # DEVLOG
 
+---
+
+## [xx-Sep-2026] - - 
+
+* Fixed file loggin bug.
+
+---
+
 ## [16-Sep-2026] - Tweaks - 0.2.0
 
 + Support for `set_log_output`.

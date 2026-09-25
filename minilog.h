@@ -1,4 +1,3 @@
-// TODO make thread-safe
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -14,6 +13,7 @@
 // TODO the debug build check should be more robust
 #if defined(_MSC_VER) && defined(_DEBUG)
 #define DEBUG_BUILD 1
+extern void __debugbreak();
 #define BREAKPOINT __debugbreak()
 #elif (defined(__GNUC__) || defined(__clang__)) && !defined(NDEBUG)
 #define DEBUG_BUILD 1
@@ -45,7 +45,13 @@
 #define PRINTF_FORMAT
 #endif /* defined(__GNUC__) || defined(__clang__) */
 
-// Monolog macros
+#ifdef _MSC_VER
+#define MINICALL __stdcall
+#else
+#define MINICALL
+#endif /* _MSC_VER */
+
+// Minilog macros
 
 #ifdef _WIN32
 #define LOG_COLOR_RED ""
@@ -77,86 +83,103 @@
 #define MINILOG_WARN(...) minilog_log_warn(__FILE__, __LINE__, __VA_ARGS__)
 #define MINILOG_ERROR(...) minilog_log_error(__FILE__, __LINE__, __VA_ARGS__)
 #define MINILOG_FATAL(...) minilog_log_fatal(__FILE__, __LINE__, __VA_ARGS__)
-
 #define MINILOG_TODO(...) minilog_log_todo(__FILE__, __LINE__, __VA_ARGS__)
 
-// Setup
+/* Set up for C function definitions, even when using C++ */
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-typedef enum LogPriority {
-    LOG_PRIORITY_TRACE = 0x00,
-    LOG_PRIORITY_DEBUG,
-    LOG_PRIORITY_INFO,
-    LOG_PRIORITY_WARN,
-    LOG_PRIORITY_ERROR,
-    LOG_PRIORITY_FATAL,
-    LOG_PRIORITY_TODO,
+    // Setup
+    typedef enum LogPriority {
+        LOG_PRIORITY_TRACE = 0x00,
+        LOG_PRIORITY_DEBUG,
+        LOG_PRIORITY_INFO,
+        LOG_PRIORITY_WARN,
+        LOG_PRIORITY_ERROR,
+        LOG_PRIORITY_FATAL,
+        LOG_PRIORITY_TODO,
 
-    // For looping
-    LOG_PRIORITY_SENTINELLE = 0x7fff
-} LogPriority;
+        // For looping
+        LOG_PRIORITY_SENTINELLE = 0x7fff
+    } LogPriority;
 
-typedef enum LogOutput {
-    LOG_OUTPUT_DEFAULT = 0x00, // prints to file and stdout
-    LOG_OUTPUT_STDOUT,
-    LOG_OUTPUT_STDERR,
-    LOG_OUTPUT_FILE,
+    typedef enum LogOutput {
+        LOG_OUTPUT_DEFAULT = 0x00, // prints to file and stdout
+        LOG_OUTPUT_STDOUT,
+        LOG_OUTPUT_STDERR,
+        LOG_OUTPUT_FILE,
 
-    LOG_OUTPUT_SENTINELLE = 0x7fff,
-} LogOutput;
-typedef int (*log_fn_ptr)(const char *file, int line, LogPriority priority,
-                          LogOutput output, const char *fmt, va_list ap);
+        // For looping
+        LOG_OUTPUT_SENTINELLE = 0x7fff,
+    } LogOutput;
 
-void minilog_init(const char *path, log_fn_ptr fn);
-void minilog_shutdown(void);
+    typedef int (*MINICALL log_fn_ptr)(const char *file, int line,
+                                       LogPriority priority, LogOutput output,
+                                       const char *fmt, va_list ap);
 
-void minilog_set_log_color(int target, int color);
-void minilog_set_log_file(const char *path);
-void minilog_set_log_function(log_fn_ptr log_fn);
-void minilog_set_log_output(const LogOutput *output);
+    extern void MINICALL minilog_init(const char *path, log_fn_ptr fn);
+    extern void MINICALL minilog_shutdown(void);
 
-// Default log function
-int minilog_log_v(const char *file, int line, LogPriority priority,
-                  LogOutput output, const char *fmt, va_list ap);
+    extern void MINICALL minilog_set_log_color(int target, int color);
+    extern void MINICALL minilog_set_log_file(const char *path);
+    extern void MINICALL minilog_set_log_function(log_fn_ptr log_fn);
+    extern void MINICALL minilog_set_log_output(const LogOutput *output);
+    extern void MINICALL minilog_set_log_format(char *format);
 
-// Printing functions
-PRINTF_FORMAT(3, 4)
-int minilog_log_trace(const char *file, int line, const char *fmt, ...);
+    // Printing functions
+    extern PRINTF_FORMAT(3, 4) int MINICALL
+        minilog_log_trace(const char *file, int line, const char *fmt, ...);
 
-PRINTF_FORMAT(3, 4)
-int minilog_log_debug(const char *file, int line, const char *fmt, ...);
+    extern PRINTF_FORMAT(3, 4) int MINICALL
+        minilog_log_debug(const char *file, int line, const char *fmt, ...);
 
-PRINTF_FORMAT(3, 4)
-int minilog_log_info(const char *file, int line, const char *fmt, ...);
+    extern PRINTF_FORMAT(3, 4) int MINICALL
+        minilog_log_info(const char *file, int line, const char *fmt, ...);
 
-PRINTF_FORMAT(3, 4)
-int minilog_log_warn(const char *file, int line, const char *fmt, ...);
+    extern PRINTF_FORMAT(3, 4) int MINICALL
+        minilog_log_warn(const char *file, int line, const char *fmt, ...);
 
-PRINTF_FORMAT(3, 4)
-int minilog_log_error(const char *file, int line, const char *fmt, ...);
+    extern PRINTF_FORMAT(3, 4) int MINICALL
+        minilog_log_error(const char *file, int line, const char *fmt, ...);
 
-NORETURN PRINTF_FORMAT(3, 4) int minilog_log_fatal(const char *file, int line,
-                                                   const char *fmt, ...);
+    extern NORETURN PRINTF_FORMAT(3, 4) int MINICALL
+        minilog_log_fatal(const char *file, int line, const char *fmt, ...);
 
-PRINTF_FORMAT(3, 4)
-int minilog_log_todo(const char *file, int line, const char *fmt, ...);
+    extern PRINTF_FORMAT(3, 4) int MINICALL
+        minilog_log_todo(const char *file, int line, const char *fmt, ...);
 
-// Implementation
+/* Ends C function definitions when using C++ */
+#ifdef __cplusplus
+}
+#endif
+
+//////////////////////////
+// Implementation       //
+//////////////////////////
 #ifdef MINILOG_IMPLEMENTATION
+
+#define MUTEX_IMPLEMENTATION
+#include "mutex/mutex.h"
 
 static FILE *log_fp;
 static FILE *log_fd;
 
-LogOutput log_output;
-
+static LogOutput log_output;
+static LogPriority log_priotity;
 static log_fn_ptr log_fn;
 
 static char time_buf[256];
 static char *log_color;
 static char *log_format;
 
+static Mutex *log_lock;
+static Mutex *log_fn_lock;
+
 // Helpers
 static char *color_from_priority(LogPriority priority)
 {
+    lock_mutex(log_lock);
     switch (priority) {
     case LOG_PRIORITY_TRACE:
         return LOG_COLOR_RESET;
@@ -176,10 +199,12 @@ static char *color_from_priority(LogPriority priority)
         return LOG_COLOR_RESET;
     }
     return NULL;
+    unlock_mutex(log_lock);
 }
 
 static char *string_from_priority(LogPriority priority)
 {
+    lock_mutex(log_lock);
     switch (priority) {
     case LOG_PRIORITY_TRACE:
         return "TRACE";
@@ -198,11 +223,13 @@ static char *string_from_priority(LogPriority priority)
     default:
         return "MINILOG";
     }
+    unlock_mutex(log_lock);
     return NULL;
 }
 
 static void set_console_text_color(LogPriority priority)
 {
+    lock_mutex(log_lock);
     switch (priority) {
     case LOG_PRIORITY_TRACE: {
 #ifdef _WIN32
@@ -239,6 +266,7 @@ static void set_console_text_color(LogPriority priority)
 #else
         log_color = LOG_COLOR_YELLOW;
 #endif // _WIN32
+
     } break;
 
     case LOG_PRIORITY_ERROR: {
@@ -284,11 +312,13 @@ static void set_console_text_color(LogPriority priority)
     printf("%s", log_color);
 #endif /* __unix__ */
 
+    unlock_mutex(log_lock);
     return;
 }
 
 static char *get_time_point(void)
 {
+    lock_mutex(log_lock);
     time_t t = time(NULL);
     struct tm *tp = localtime(&t);
 #ifdef _WIN32
@@ -297,91 +327,17 @@ static char *get_time_point(void)
     strftime(time_buf, 256, "%Y-%m-%d-%H:%M:%S", tp);
 #endif // _WIN32
 
+    unlock_mutex(log_lock);
     return time_buf;
 }
 
-static void minilog_set_log_format(char *format)
+// Default print function if none is provided
+static inline int minilog_log_v(const char *file, int line,
+                                LogPriority priority, LogOutput output,
+                                const char *fmt, va_list ap)
 {
-    // TODO handle variadics
-    format = "%f:%l - [%T][%L]: ";
-    for (char *p = format; *p++;) {
-        switch (*p) {
-        case 'L':
-            break;
-        case 'T':
-            break;
-        case 'f':
-            break;
-        case 'l':
-            break;
-        }
-    }
-    log_format = format;
-    return;
-}
+    lock_mutex(log_lock);
 
-// Definitions
-void minilog_init(const char *path, log_fn_ptr fn)
-{
-    minilog_set_log_file(path);
-    minilog_set_log_function(fn);
-    minilog_set_log_format(log_format);
-    // resetting the color
-    set_console_text_color(LOG_PRIORITY_TRACE);
-    return;
-}
-
-void minilog_shutdown(void)
-{
-    // making sure we don't leave any colors behind
-    set_console_text_color(LOG_PRIORITY_TRACE);
-    if (NULL != log_fp) {
-        fclose(log_fp);
-        log_fp = NULL;
-    }
-    return;
-}
-
-void minilog_set_log_function(log_fn_ptr fn)
-{
-    if (fn) {
-        log_fn = fn;
-    } else {
-        log_fn = &minilog_log_v;
-    }
-
-    return;
-}
-
-void minilog_set_log_file(const char *path)
-{
-    if (NULL == path) {
-        return;
-    }
-
-    if (NULL != log_fp) {
-        fclose(log_fp);
-    }
-
-    char *time_buf = get_time_point();
-    char real_path[256];
-    strcat(real_path, path);
-    strcat(real_path, time_buf);
-    printf("%s\n", real_path);
-    log_fp = fopen(real_path, "a+");
-    assert(log_fp);
-    return;
-}
-
-void minilog_set_log_output(const LogOutput *output)
-{
-    log_output = *output;
-    return;
-}
-
-int minilog_log_v(const char *file, int line, LogPriority priority,
-                  LogOutput output, const char *fmt, va_list ap)
-{
     int len = 0;
 
     minilog_set_log_output(&output);
@@ -397,7 +353,7 @@ int minilog_log_v(const char *file, int line, LogPriority priority,
         log_fd = stderr;
         break;
     case LOG_OUTPUT_FILE:
-        log_fd = stdout;
+        log_fd = NULL;
         break;
     default:
         break;
@@ -426,7 +382,7 @@ int minilog_log_v(const char *file, int line, LogPriority priority,
         set_console_text_color(LOG_PRIORITY_TRACE);
     }
 
-    if (log_fd) {
+    if (log_fp) {
         va_list args;
         va_copy(args, ap);
 
@@ -438,7 +394,113 @@ int minilog_log_v(const char *file, int line, LogPriority priority,
         va_end(args);
     }
 
+    fflush(log_fd);
+    fflush(log_fp);
+
+    unlock_mutex(log_lock);
+
     return len;
+}
+
+// Definitions
+void minilog_init(const char *path, log_fn_ptr fn)
+{
+    log_lock = create_mutex();
+
+    minilog_set_log_file(path);
+    minilog_set_log_function(fn);
+    minilog_set_log_format(log_format);
+    // resetting the colornnn
+    set_console_text_color(LOG_PRIORITY_TRACE);
+    return;
+}
+
+void minilog_shutdown(void)
+{
+    lock_mutex(log_lock);
+    // making sure we don't leave any colors behind
+    set_console_text_color(LOG_PRIORITY_TRACE);
+    if (NULL != log_fp) {
+        fclose(log_fp);
+        log_fp = NULL;
+    }
+
+    destroy_mutex(log_lock);
+    return;
+}
+
+void minilog_set_log_function(log_fn_ptr fn)
+{
+    lock_mutex(log_fn_lock);
+    if (fn) {
+        log_fn = fn;
+    } else {
+        log_fn = &minilog_log_v;
+    }
+    unlock_mutex(log_fn_lock);
+    return;
+}
+
+// TODO write implementation
+void minilog_set_log_format(char *format)
+{
+    lock_mutex(log_lock);
+    // TODO handle variadics
+    if (format) {
+        for (char *p = format; *p++;) {
+            switch (*p) {
+            case 'P':
+                // Priority
+
+                break;
+            case 'T':
+                // Time
+                break;
+            case 'f':
+                // file
+                break;
+            case 'l':
+                // line
+                break;
+            }
+        }
+        log_format = format;
+    } else {
+        log_format = "%f:%l - [%T][%P]: ";
+    }
+    unlock_mutex(log_lock);
+    return;
+}
+
+void minilog_set_log_file(const char *path)
+{
+    lock_mutex(log_lock);
+    if (NULL == path) {
+        unlock_mutex(log_lock);
+        return;
+    }
+
+    if (NULL != log_fp) {
+        fclose(log_fp);
+    }
+
+    char *time_buf = get_time_point();
+    char real_path[256] = "\0";
+    strcat(real_path, path);
+    strcat(real_path, time_buf);
+    printf("%s\n", real_path);
+    log_fp = fopen(real_path, "a+");
+    assert(log_fp);
+    unlock_mutex(log_lock);
+    return;
+}
+
+void minilog_set_log_output(const LogOutput *output)
+{
+    lock_mutex(log_lock);
+    log_output = *output;
+    unlock_mutex(log_lock);
+    return;
 }
 
 int minilog_log_trace(const char *file, int line, const char *fmt, ...)
